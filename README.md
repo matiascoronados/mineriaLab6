@@ -1,0 +1,1 @@
+# mineriaLab6
