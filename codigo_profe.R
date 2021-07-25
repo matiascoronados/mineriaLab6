@@ -132,8 +132,6 @@ inverseStep[(90/Ts):(180/Ts),1]=0
 
 
 for (i in 1:length(mejoresModelos[,1])){
-  
-  
   PAMn<-(datos$PAM-min(datos$PAM))/(max(datos$PAM)-min(datos$PAM))
   VFSCn<-(datos$VFSC-min(datos$VFSC))/(max(datos$VFSC)-min(datos$VFSC))
   data <- data.frame(PAMn,VFSCn)

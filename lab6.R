@@ -36,7 +36,7 @@ retardos_multi <- function(
 
 #### Procesamiento DATOS A ####
 ## 70% of the sample size
-datos <- datosA
+datos <- datosB
 
 attach(datos)
 #Tiempo de muestreo
@@ -51,6 +51,7 @@ cost <- 2^seq(-4, 12, 2)
 nu <- seq(0.1, 0.9, 0.4)
 gamma<-2^seq(-4, 12, 2)
 lagsList<-seq(1,5,1)
+
 # Se normalizan los datos en valores 0 - 1
 PAMn<-(datos$PAM-min(datos$PAM))/(max(datos$PAM)-min(datos$PAM))
 VFSCn<-(datos$VFSC-min(datos$VFSC))/(max(datos$VFSC)-min(datos$VFSC))
@@ -63,8 +64,7 @@ train_ind <- sample(seq_len(nrow(data)), size = smp_size)
 train <- data[train_ind, ]
 test <- data[-train_ind, ]
 
-
-
+#Se obtienen los mejores modelos
 parms <- expand.grid(lagsList=lagsList, cost = cost, nu = nu, gamma=gamma)
 salida <- (c( foreach(i = 1:nrow(parms),  combine = rbind, .inorder = FALSE) %dopar% {
   c <- parms[i, ]$cost
@@ -73,14 +73,23 @@ salida <- (c( foreach(i = 1:nrow(parms),  combine = rbind, .inorder = FALSE) %do
   l <- parms[i, ]$lagsList
   lag<-list(PAMn = l,VFSCn = 0)
   signal.train <- retardos_multi(train, lag)
-  
   retDatos=signal.train$folded.signal
   x=subset(retDatos, select = -VFSCn)
   y=retDatos$VFSCn
   modelo <- e1071::svm(x, y, type = "nu-regression", kernel = "radial", cost = c, nu = n, gamma=g)
-  pred <- predict(modelo, test) 
-  corr_pred<-cor(pred,test,method = "pearson")
-   
+  dataframe <- data.frame(PAMn = test$PAMn)
+  colnames <- c("PAMn")
+  aux <- ncol(x)-1
+  for(i in 1:aux){
+    colname <- paste('PAMn.lag',i,sep="")
+    colnames <- append(colnames, colname)
+    newcol <- data.frame(i = test$PAMn)
+    dataframe <- cbind(dataframe, newcol)
+  }
+  colnames(dataframe) <-colnames
+  pred <- predict(modelo, dataframe)
+  corr_pred<-cor(pred,test$VFSCn,method = "pearson")
+  dataframe <- NULL
   c(l, c, n, g, corr_pred)
 }))
 
@@ -92,6 +101,48 @@ print(mejoresModelos)
 
 
 
+####### ####### #######  ####### ####### ####### 
+# Para ver el tema de la capacidad de autoregulacion!.
+####### ####### #######  ####### ####### ####### 
+
+inverseStep=matrix(1,180/Ts,1)
+inverseStep[(90/Ts):(180/Ts),1]=0
+train <- train
+
+for (i in 1:length(mejoresModelosB[,1])){
+  PAMn<-(datos$PAM-min(datos$PAM))/(max(datos$PAM)-min(datos$PAM))
+  VFSCn<-(datos$VFSC-min(datos$VFSC))/(max(datos$VFSC)-min(datos$VFSC))
+  data <- data.frame(PAMn,VFSCn)
+  lag<-list(PAMn = mejoresModelos[i,1],VFSCn = 0)
+  signal.train <- retardos_multi(train, lag)
+  retDatos=signal.train$folded.signal
+  x=subset(retDatos, select = -VFSCn)
+  y=retDatos$VFSCn
+  mejorModelo <- svm(x, y, kernel = "radial",type = "nu-regression", cost = mejoresModelos[i,2], nu = mejoresModelos[i,3], gamma=mejoresModelos[i,4])
+  
+  PAMn=inverseStep
+  VFSCn=inverseStep 
+  data <- data.frame(PAMn,VFSCn)
+  lag<-list(PAMn = mejoresModelos[i,1],VFSCn = 0)
+  signal.train <- retardos_multi(data, lag)
+  retDatos=signal.train$folded.signal
+  x=subset(retDatos, select = -VFSCn)
+  y=retDatos$VFSCn
+  
+  stepTime=seq(Ts,(length(retDatos$PAMn))*Ts,Ts)
+  stepResponse <- predict(mejorModelo, x ) 
+  plot(stepTime,retDatos$PAMn,type="l", col="red")
+  lines(stepTime,stepResponse, col = "blue")
+  legend("topright", c("Escalon de presión", "respuesta al escalon"), title = "autorregulacion", pch = 1, col=c("red","blue"),lty=c(1,1),inset = 0.01)
+  print(paste("corr=",mejoresModelos[i,5]))
+  readline(prompt="Press [enter] to continue")
+}
+
+
+#mejoresModelosA <- mejoresModelos
+# SANO
+#mejoresModelosB <- mejoresModelos
+# ENFERMO
 
 
 
