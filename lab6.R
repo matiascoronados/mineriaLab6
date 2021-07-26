@@ -60,9 +60,9 @@ data <- data.frame(PAMn,VFSCn)
 smp_size <- floor(0.50 * nrow(data))
 ## set the seed to make your partition reproducible
 set.seed(123)
-train_ind <- sample(seq_len(nrow(data)), size = smp_size)
-train <- data[train_ind, ]
-test <- data[-train_ind, ]
+train <- data[1:smp_size,]
+aux <- smp_size+1
+test <- data[aux:nrow(data),]
 
 #Se obtienen los mejores modelos
 parms <- expand.grid(lagsList=lagsList, cost = cost, nu = nu, gamma=gamma)
@@ -98,8 +98,7 @@ output <- matrix(unlist(salida), ncol = 5, byrow = TRUE)
 mejoresModelos<-output[order(output[,5], decreasing = TRUE),]
 print(mejoresModelos)
 
-
-
+mejoresModelos.DatosB.parte1 
 
 ####### ####### #######  ####### ####### ####### 
 # Para ver el tema de la capacidad de autoregulacion!.
@@ -109,17 +108,24 @@ inverseStep=matrix(1,180/Ts,1)
 inverseStep[(90/Ts):(180/Ts),1]=0
 train <- train
 
-for (i in 1:length(mejoresModelosB[,1])){
+
+# partes 2 son los mejores!!!!!!!!!!!
+mejoresModelos.sujetoB.02 <- mejoresModelosDatosB.parte2
+head(mejoresModelos.sujetoB.02)
+#Mostrar cuales dan las mejores corr
+
+mejoresModelos <- mejoresModelos.sujetoB.02
+
+for (i in 1:6){
   PAMn<-(datos$PAM-min(datos$PAM))/(max(datos$PAM)-min(datos$PAM))
   VFSCn<-(datos$VFSC-min(datos$VFSC))/(max(datos$VFSC)-min(datos$VFSC))
   data <- data.frame(PAMn,VFSCn)
   lag<-list(PAMn = mejoresModelos[i,1],VFSCn = 0)
-  signal.train <- retardos_multi(train, lag)
+  signal.train <- retardos_multi(train , lag)
   retDatos=signal.train$folded.signal
   x=subset(retDatos, select = -VFSCn)
   y=retDatos$VFSCn
   mejorModelo <- svm(x, y, kernel = "radial",type = "nu-regression", cost = mejoresModelos[i,2], nu = mejoresModelos[i,3], gamma=mejoresModelos[i,4])
-  
   PAMn=inverseStep
   VFSCn=inverseStep 
   data <- data.frame(PAMn,VFSCn)
@@ -128,7 +134,6 @@ for (i in 1:length(mejoresModelosB[,1])){
   retDatos=signal.train$folded.signal
   x=subset(retDatos, select = -VFSCn)
   y=retDatos$VFSCn
-  
   stepTime=seq(Ts,(length(retDatos$PAMn))*Ts,Ts)
   stepResponse <- predict(mejorModelo, x ) 
   plot(stepTime,retDatos$PAMn,type="l", col="red")
